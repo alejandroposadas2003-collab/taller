@@ -299,8 +299,9 @@ function saveData(){
 function _doSave(){
   if(_saving){_saveTimer=setTimeout(_doSave,1000);return;}
   _saving=true; syncStatus('saving');
-  var na=Object.keys(NOTAS).map(function(k){var n=NOTAS[k];return{mechId:k,txt:n.txt||'',fecha:n.fecha||'',foto:n.foto||''};});
-  var ca=[];Object.keys(CHAT).forEach(function(m){(CHAT[m]||[]).forEach(function(msg){ca.push({id:msg.id,mechId:m,autor:msg.autor,txt:msg.txt||'',foto:msg.foto||'',fecha:msg.fecha});});});
+  var FLIM=40000; // Sheets cell char limit safe zone
+  var na=Object.keys(NOTAS).map(function(k){var n=NOTAS[k];var f=n.foto||'';if(f.length>FLIM)f=f.slice(0,FLIM);return{mechId:k,txt:n.txt||'',fecha:n.fecha||'',foto:f};});
+  var ca=[];Object.keys(CHAT).forEach(function(m){(CHAT[m]||[]).forEach(function(msg){var f=msg.foto||'';if(f.length>FLIM)f=f.slice(0,FLIM);ca.push({id:msg.id,mechId:m,autor:msg.autor,txt:msg.txt||'',foto:f,fecha:msg.fecha});});});
   var tables={usuarios:U.filter(function(u){return u.role==='mecanico';}),tareas:TAREAS,aceite:ACEITE,horasExtra:HEXTRA,notas:na,chat:ca};
   jsonpCall({action:'save',tables:JSON.stringify(tables)},function(res,err){
     _saving=false;
@@ -309,11 +310,29 @@ function _doSave(){
 }
 
 function uploadFoto(base64,nombre,cb){
-  // Upload via JSONP — large images sent as-is (stored as URL after Drive upload)
-  jsonpCall({action:'uploadFoto',base64:base64,nombre:nombre||('foto_'+Date.now()+'.jpg')},function(res,err){
-    if(err||!res||!res.ok){cb(base64);return;} // fallback to base64
-    cb(res.data.url);
+  // JSONP GET can't handle large base64 — store compressed base64 directly in Sheets
+  // Compress image first to keep size manageable
+  compressImg(base64, function(compressed){
+    cb(compressed);
   });
+}
+
+function compressImg(base64,cb){
+  try{
+    var img=new Image();
+    img.onload=function(){
+      var MAX=600;
+      var w=img.width,h=img.height;
+      if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
+      if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}
+      var cv=document.createElement('canvas');
+      cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      cb(cv.toDataURL('image/jpeg',0.6));
+    };
+    img.onerror=function(){cb(base64);};
+    img.src=base64;
+  }catch(e){cb(base64);}
 }
 
 // ══════════════════════════════════════
@@ -773,8 +792,7 @@ function modalNotaDia(mechId){
       closeModal();saveData();toast('Nota guardada');go('mecanicos');
     }
     if(_ndImg&&_ndImg.startsWith('data:')){
-      toast('⏳ Subiendo foto...');
-      uploadFoto(_ndImg,'nota_'+Date.now()+'.jpg',function(url){finish(url);});
+      compressImg(_ndImg,function(compressed){finish(compressed);});
     } else { finish(_ndImg); }
   };
   bArr.appendChild(bSv);
@@ -868,8 +886,7 @@ function sendChat(){
     _pendImg=null;saveData();toast('✔ Enviado');openChat(_chatMec);
   }
   if(_pendImg&&_pendImg.startsWith('data:')){
-    toast('⏳ Subiendo foto...');
-    uploadFoto(_pendImg,'chat_'+Date.now()+'.jpg',function(url){finish(url);});
+    compressImg(_pendImg,function(compressed){finish(compressed);});
   } else { finish(_pendImg); }
 }
 function clearChat(mechId){
