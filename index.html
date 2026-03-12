@@ -299,11 +299,37 @@ function saveData(){
 function _doSave(){
   if(_saving){_saveTimer=setTimeout(_doSave,1000);return;}
   _saving=true; syncStatus('saving');
-  var FLIM=40000; // Sheets cell char limit safe zone
-  var na=Object.keys(NOTAS).map(function(k){var n=NOTAS[k];var f=n.foto||'';if(f.length>FLIM)f=f.slice(0,FLIM);return{mechId:k,txt:n.txt||'',fecha:n.fecha||'',foto:f};});
-  var ca=[];Object.keys(CHAT).forEach(function(m){(CHAT[m]||[]).forEach(function(msg){var f=msg.foto||'';if(f.length>FLIM)f=f.slice(0,FLIM);ca.push({id:msg.id,mechId:m,autor:msg.autor,txt:msg.txt||'',foto:f,fecha:msg.fecha});});});
-  var tables={usuarios:U.filter(function(u){return u.role==='mecanico';}),tareas:TAREAS,aceite:ACEITE,horasExtra:HEXTRA,notas:na,chat:ca};
-  jsonpCall({action:'save',tables:JSON.stringify(tables)},function(res,err){
+  // Strip base64 photos before sending — URLs too large for GET
+  // Photos stay in memory only (visible current session)
+  var na=Object.keys(NOTAS).map(function(k){
+    var n=NOTAS[k];
+    var f=n.foto||'';
+    // Only send URL photos (http...), not base64
+    if(f.startsWith('data:')) f='';
+    return{mechId:k,txt:n.txt||'',fecha:n.fecha||'',foto:f};
+  });
+  var ca=[];Object.keys(CHAT).forEach(function(m){
+    (CHAT[m]||[]).forEach(function(msg){
+      var f=msg.foto||'';
+      if(f.startsWith('data:')) f='';
+      ca.push({id:msg.id,mechId:m,autor:msg.autor,txt:msg.txt||'',foto:f,fecha:msg.fecha});
+    });
+  });
+  var tables={
+    usuarios:U.filter(function(u){return u.role==='mecanico';}),
+    tareas:TAREAS,
+    aceite:ACEITE,
+    horasExtra:HEXTRA,
+    notas:na,
+    chat:ca
+  };
+  var payload=JSON.stringify(tables);
+  // Extra safety: if still too large, remove descriptions
+  if(payload.length>8000){
+    tables.tareas=TAREAS.map(function(t){return{id:t.id,placa:t.placa,veh:t.veh,mec:t.mec,tit:t.tit,desc:'',est:t.est,pri:t.pri,fecha:t.fecha,fin:t.fin,nota:t.nota};});
+    payload=JSON.stringify(tables);
+  }
+  jsonpCall({action:'save',tables:payload},function(res,err){
     _saving=false;
     syncStatus((err||!res||!res.ok)?'error':'ok');
   });
