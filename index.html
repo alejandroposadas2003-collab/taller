@@ -129,7 +129,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div class="fi"><label>Usuario</label><input id="lu" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <div class="fi"><label>Contraseña</label><input id="lp" type="password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <div id="lerr"></div>
-    <button class="btn-ac" style="width:100%;padding:11px;font-size:14px;border-radius:4px;margin-bottom:12px" onclick="doLogin()">ENTRAR</button>
+    <button class="btn-ac" id="loginBtn" style="width:100%;padding:11px;font-size:14px;border-radius:4px;margin-bottom:12px" onclick="doLogin()">ENTRAR</button>
     <div style="font-size:11px;color:var(--mu);margin-bottom:6px">ACCESO RÁPIDO</div>
     <div class="chips" id="chips"></div>
   </div>
@@ -323,11 +323,29 @@ function confirm2(title,msg,okTxt,onOk){
 function doLogin(){
   var user=(document.getElementById('lu').value||'').trim().toLowerCase();
   var pass=(document.getElementById('lp').value||'').trim();
-  var found=U.find(function(u){return u.id===user&&u.pass===pass;});
   var err=document.getElementById('lerr');
-  if(!found){err.textContent='Usuario o contraseña incorrectos';err.style.display='block';return;}
+  var btn=document.getElementById('loginBtn');
   err.style.display='none';
-  loginAs(found);
+  // Try local first (admin always works)
+  var found=U.find(function(u){return u.id===user&&u.pass===pass;});
+  if(found){loginAs(found);return;}
+  // Not found locally — fetch from Sheets then retry
+  if(btn){btn.textContent='Cargando...';btn.disabled=true;}
+  jsonpCall({action:'load'},function(res,err2){
+    if(btn){btn.textContent='ENTRAR';btn.disabled=false;}
+    if(!err2&&res&&res.ok&&res.data&&res.data.usuarios){
+      var fromSheet=res.data.usuarios.map(function(u){return{id:''+u.id,name:''+u.name,pass:''+u.pass,role:''+u.role,col:''+u.col};});
+      fromSheet.forEach(function(su){
+        if(!su.name||su.name.length<2||su.name==='FF'||!su.id||su.id.length<2) return;
+        if(!U.find(function(u){return u.id===su.id;})) U.push(su);
+        else{var ex=U.find(function(u){return u.id===su.id;});if(ex&&su.name&&su.name!=='FF')ex.name=su.name;}
+      });
+    }
+    var found2=U.find(function(u){return u.id===user&&u.pass===pass;});
+    if(!found2){err.textContent='Usuario o contraseña incorrectos';err.style.display='block';return;}
+    err.style.display='none';
+    loginAs(found2);
+  });
 }
 function quickLogin(uid){var u=gu(uid);if(u)loginAs(u);}
 function loginAs(u){
