@@ -116,7 +116,81 @@ tr:hover td{background:rgba(255,255,255,.02);}
 .pg-cell{background:var(--s2);padding:6px;min-height:36px;border-radius:3px;font-size:11px;}
 
 /* TOAST */
-#toast{position:fixed;bottom:24px;right:24px;padding:10px 18px;border-radius:6px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;}
+#toast{position:fixed;bottom:24px;right:16px;left:16px;text-align:center;padding:10px 18px;border-radius:6px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;}
+
+/* ══ MOBILE BOTTOM NAV ══ */
+#bottomNav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--s1);border-top:1px solid var(--bd);z-index:200;padding:4px 0 env(safe-area-inset-bottom,4px);}
+#bottomNav .bnav-wrap{display:flex;overflow-x:auto;scrollbar-width:none;}
+#bottomNav .bnav-wrap::-webkit-scrollbar{display:none;}
+.bn-item{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 14px;cursor:pointer;color:var(--mu);font-size:10px;white-space:nowrap;border-bottom:2px solid transparent;}
+.bn-item.active{color:var(--ac);border-bottom-color:var(--ac);}
+.bn-item .bnico{font-size:18px;line-height:1;}
+
+/* ══ RESPONSIVE ══ */
+@media(max-width:768px){
+  /* Hide desktop sidebar, show bottom nav */
+  #sb{display:none!important;}
+  #sbToggle{display:none!important;}
+  #bottomNav{display:block;}
+
+  /* Topbar compact */
+  #topbar{padding:0 12px;height:48px;}
+  .brand{font-size:13px;letter-spacing:1px;}
+  .tname{display:none;}
+  .trole{display:none;}
+  #syncSt{font-size:10px;}
+  .tbtn{padding:4px 8px;font-size:11px;}
+
+  /* Main area — leave room for bottom nav */
+  #wrap{margin-top:48px;height:calc(100vh - 48px);}
+  #main{padding:14px;padding-bottom:70px;}
+
+  /* Tables — stack as cards on mobile */
+  .tw table{display:block;}
+  .tw thead{display:none;}
+  .tw tbody{display:block;}
+  .tw tr{display:flex;flex-direction:column;background:var(--s1);border:1px solid var(--bd);border-radius:8px;margin-bottom:10px;padding:12px;}
+  .tw td{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px;}
+  .tw td:last-child{border-bottom:none;padding-top:8px;flex-wrap:wrap;gap:6px;}
+  .tw td:before{content:attr(data-label);font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;margin-right:8px;}
+
+  /* Forms */
+  .two{grid-template-columns:1fr;}
+  .form-card{padding:14px;}
+
+  /* Modal */
+  .mbox{padding:16px;max-height:95vh;}
+
+  /* Mech cards — single column */
+  .grid3{grid-template-columns:1fr;}
+
+  /* Stats row */
+  .stats{gap:10px;}
+  .stat{min-width:80px;padding:10px 14px;}
+  .stat .n{font-size:22px;}
+
+  /* Page header */
+  .sh{margin-bottom:14px;}
+  .sh h1{font-size:17px;}
+
+  /* Login box */
+  .lb{width:100%;max-width:340px;padding:24px 20px;}
+
+  /* Programacion — scrollable */
+  .prog-grid{overflow-x:auto;min-width:500px;}
+
+  /* Buttons full width in forms */
+  .form-card button[onclick="crearOrden()"]{font-size:15px;padding:12px;}
+
+  /* Aceite table actions stack */
+  .tw td:last-child button{width:100%;justify-content:center;}
+}
+
+@media(max-width:400px){
+  #main{padding:10px;padding-bottom:70px;}
+  .bn-item{padding:6px 10px;font-size:9px;}
+  .btn-sm{padding:5px 8px;font-size:11px;}
+}
 </style>
 </head>
 <body>
@@ -146,6 +220,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
 
 <!-- TOAST -->
 <div id="toast"></div>
+
+<!-- BOTTOM NAV (mobile) -->
+<div id="bottomNav">
+  <div class="bnav-wrap" id="bnavWrap"></div>
+</div>
 
 <!-- TOPBAR -->
 <div id="topbar">
@@ -360,6 +439,7 @@ function loginAs(u){
   document.getElementById('tName').textContent=u.name;
   document.getElementById('tRole').textContent=u.role.toUpperCase();
   buildSB();
+  buildBottomNav();
   go('dashboard');
   loadData(function(ok){if(ok)go(_cur);});
 }
@@ -382,6 +462,28 @@ function toggleSB(){
     if(btn) btn.style.color='var(--ac)';
   }
 }
+
+function buildBottomNav(){
+  var wrap=document.getElementById('bnavWrap');if(!wrap)return;
+  wrap.innerHTML='';
+  NAV.forEach(function(n){
+    if(n.adm&&CU.role!=='admin')return;
+    var d=document.createElement('div');d.className='bn-item';d.dataset.sec=n.id;
+    d.innerHTML='<span class="bnico">'+n.ico+'</span><span>'+n.lbl+'</span>';
+    d.onclick=function(){go(n.id);};
+    wrap.appendChild(d);
+  });
+}
+
+function updateBottomNav(sec){
+  document.querySelectorAll('.bn-item').forEach(function(el){
+    el.classList.toggle('active',el.dataset.sec===sec);
+  });
+  // Scroll active item into view
+  var active=document.querySelector('.bn-item.active');
+  if(active)active.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});
+}
+
 
 function buildChips(){
   var cw=document.getElementById('chips');cw.innerHTML='';
@@ -410,9 +512,23 @@ function buildSB(){
 function go(sec){
   _cur=sec;
   document.querySelectorAll('.nav-item').forEach(function(el){el.classList.toggle('active',el.dataset.sec===sec);});
+  updateBottomNav(sec);
   var m=document.getElementById('main');m.innerHTML='';
   var pages={dashboard:pgDash,tareas:pgTareas,nueva:pgNueva,hextra:pgHextra,mecanicos:pgMecs,prog:pgProg,aceite:pgAceite,michat:pgMichat,historial:pgHist};
   (pages[sec]||pgDash)(m);
+  labelTables(m);
+}
+
+function labelTables(el){
+  el.querySelectorAll('table').forEach(function(tb){
+    var ths=tb.querySelectorAll('thead th');
+    var labels=Array.from(ths).map(function(th){return th.textContent.trim();});
+    tb.querySelectorAll('tbody tr').forEach(function(tr){
+      tr.querySelectorAll('td').forEach(function(td,i){
+        if(labels[i]) td.setAttribute('data-label',labels[i]);
+      });
+    });
+  });
 }
 
 // ══════════════════════════════════════
