@@ -261,7 +261,7 @@ function syncStatus(st){
 function jsonpCall(params,cb){
   var name='jcb_'+Date.now()+'_'+Math.floor(Math.random()*9999);
   var sc=document.createElement('script');
-  var to=setTimeout(function(){delete window[name];sc.remove();cb(null,'timeout');},15000);
+  var to=setTimeout(function(){delete window[name];sc.remove();cb(null,'timeout');},8000);
   window[name]=function(d){clearTimeout(to);delete window[name];sc.remove();cb(d,null);};
   params.callback=name;
   sc.src=API_URL+'?'+Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&');
@@ -293,8 +293,14 @@ function loadData(cb){
 
 function saveData(){
   clearTimeout(_saveTimer);
+  // Safety: if _saving flag is stuck, release it after 10s
+  if(_saving){
+    clearTimeout(_savingWatchdog);
+    _savingWatchdog=setTimeout(function(){_saving=false;},10000);
+  }
   _saveTimer=setTimeout(_doSave,1500);
 }
+var _savingWatchdog=null;
 
 function _doSave(){
   if(_saving){_saveTimer=setTimeout(_doSave,1000);return;}
@@ -329,10 +335,29 @@ function _doSave(){
     tables.tareas=TAREAS.map(function(t){return{id:t.id,placa:t.placa,veh:t.veh,mec:t.mec,tit:t.tit,desc:'',est:t.est,pri:t.pri,fecha:t.fecha,fin:t.fin,nota:t.nota};});
     payload=JSON.stringify(tables);
   }
+  try{
+    console.log('SAVE payload size:', payload.length, 'chars');
+  if(payload.length > 6000){
+    console.warn('Payload too large, trimming tareas desc/nota');
+    tables.tareas=TAREAS.map(function(t){return{id:t.id,placa:t.placa,veh:t.veh,mec:t.mec,tit:t.tit,desc:'',est:t.est,pri:t.pri,fecha:t.fecha,fin:t.fin,nota:''};});
+    tables.chat=[];
+    payload=JSON.stringify(tables);
+    console.log('Trimmed payload size:', payload.length);
+  }
   jsonpCall({action:'save',tables:payload},function(res,err){
+      _saving=false;
+      if(err||!res||!res.ok){
+        syncStatus('error');
+        // Auto retry once after 3s
+        setTimeout(function(){saveData();},3000);
+      } else {
+        syncStatus('ok');
+      }
+    });
+  }catch(ex){
     _saving=false;
-    syncStatus((err||!res||!res.ok)?'error':'ok');
-  });
+    syncStatus('error');
+  }
 }
 
 function uploadFoto(base64,nombre,cb){
