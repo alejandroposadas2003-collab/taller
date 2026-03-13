@@ -259,12 +259,30 @@ function syncStatus(st){
 }
 
 function jsonpCall(params,cb){
-  var name='jcb_'+Date.now()+'_'+Math.floor(Math.random()*9999);
-  var sc=document.createElement('script');
-  var to=setTimeout(function(){delete window[name];sc.remove();cb(null,'timeout');},8000);
-  window[name]=function(d){clearTimeout(to);delete window[name];sc.remove();cb(d,null);};
+  var name='_jcb'+Date.now()+Math.floor(Math.random()*9999);
+  // Keep callback alive — never delete until called or timeout
+  window[name]=function(d){
+    if(window[name+'_to']) clearTimeout(window[name+'_to']);
+    window[name]=undefined;
+    delete window[name];
+    cb(d,null);
+  };
+  window[name+'_to']=setTimeout(function(){
+    window[name]=function(){}; // absorb late calls silently
+    delete window[name+'_to'];
+    cb(null,'timeout');
+  },10000);
   params.callback=name;
-  sc.src=API_URL+'?'+Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&');
+  var qs=Object.keys(params).map(function(k){
+    return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);
+  }).join('&');
+  var sc=document.createElement('script');
+  sc.src=API_URL+'?'+qs;
+  sc.onerror=function(){
+    if(window[name+'_to']) clearTimeout(window[name+'_to']);
+    window[name]=function(){};
+    cb(null,'error');
+  };
   document.head.appendChild(sc);
 }
 
@@ -305,59 +323,32 @@ var _savingWatchdog=null;
 function _doSave(){
   if(_saving){_saveTimer=setTimeout(_doSave,1000);return;}
   _saving=true; syncStatus('saving');
-  // Strip base64 photos before sending — URLs too large for GET
-  // Photos stay in memory only (visible current session)
   var na=Object.keys(NOTAS).map(function(k){
-    var n=NOTAS[k];
-    var f=n.foto||'';
-    // Only send URL photos (http...), not base64
-    if(f.startsWith('data:')) f='';
+    var n=NOTAS[k];var f=n.foto||'';
+    if(f.startsWith('data:'))f='';
     return{mechId:k,txt:n.txt||'',fecha:n.fecha||'',foto:f};
   });
-  var ca=[];Object.keys(CHAT).forEach(function(m){
-    (CHAT[m]||[]).forEach(function(msg){
-      var f=msg.foto||'';
-      if(f.startsWith('data:')) f='';
-      ca.push({id:msg.id,mechId:m,autor:msg.autor,txt:msg.txt||'',foto:f,fecha:msg.fecha});
+  var ca=[];Object.keys(CHAT).forEach(function(m2){
+    (CHAT[m2]||[]).forEach(function(msg){
+      var f=msg.foto||'';if(f.startsWith('data:'))f='';
+      ca.push({id:msg.id,mechId:m2,autor:msg.autor,txt:msg.txt||'',foto:f,fecha:msg.fecha});
     });
   });
   var tables={
     usuarios:U.filter(function(u){return u.role==='mecanico';}),
-    tareas:TAREAS,
-    aceite:ACEITE,
-    horasExtra:HEXTRA,
-    notas:na,
-    chat:ca
+    tareas:TAREAS,aceite:ACEITE,horasExtra:HEXTRA,notas:na,chat:ca
   };
   var payload=JSON.stringify(tables);
-  // Extra safety: if still too large, remove descriptions
-  if(payload.length>8000){
-    tables.tareas=TAREAS.map(function(t){return{id:t.id,placa:t.placa,veh:t.veh,mec:t.mec,tit:t.tit,desc:'',est:t.est,pri:t.pri,fecha:t.fecha,fin:t.fin,nota:t.nota};});
-    payload=JSON.stringify(tables);
-  }
-  try{
-    console.log('SAVE payload size:', payload.length, 'chars');
-  if(payload.length > 6000){
-    console.warn('Payload too large, trimming tareas desc/nota');
-    tables.tareas=TAREAS.map(function(t){return{id:t.id,placa:t.placa,veh:t.veh,mec:t.mec,tit:t.tit,desc:'',est:t.est,pri:t.pri,fecha:t.fecha,fin:t.fin,nota:''};});
-    tables.chat=[];
-    payload=JSON.stringify(tables);
-    console.log('Trimmed payload size:', payload.length);
-  }
-  jsonpCall({action:'save',tables:payload},function(res,err){
+  var url=API_URL+'?action=save&tables='+encodeURIComponent(payload);
+  fetch(url,{method:'GET',mode:'no-cors'})
+    .then(function(){
       _saving=false;
-      if(err||!res||!res.ok){
-        syncStatus('error');
-        // Auto retry once after 3s
-        setTimeout(function(){saveData();},3000);
-      } else {
-        syncStatus('ok');
-      }
+      syncStatus('ok');
+    })
+    .catch(function(){
+      _saving=false;
+      syncStatus('error');
     });
-  }catch(ex){
-    _saving=false;
-    syncStatus('error');
-  }
 }
 
 function uploadFoto(base64,nombre,cb){
