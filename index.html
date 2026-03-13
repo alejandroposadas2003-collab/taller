@@ -300,9 +300,12 @@ function loadData(cb){
         else { var ex=U.find(function(u){return u.id===su.id;}); if(ex&&su.name&&su.name!=='FF') ex.name=su.name; }
       });
     }
-    if(d.tareas&&d.tareas.length){TAREAS=d.tareas.map(function(t){return{id:+t.id,placa:''+t.placa,veh:''+t.veh,mec:''+t.mec,tit:''+t.tit,desc:''+(t.desc||''),est:''+t.est,pri:''+t.pri,fecha:''+t.fecha,fin:''+(t.fin||''),nota:''+(t.nota||'')};});TID=Math.max.apply(null,TAREAS.map(function(t){return t.id;}))+1;}
-    if(d.aceite&&d.aceite.length){ACEITE=d.aceite.map(function(a){return{id:+a.id,placa:''+a.placa,conductor:''+(a.conductor||''),tel:''+(a.tel||''),vc:''+a.vc,est:''+(a.est||'pendiente')};});AID=Math.max.apply(null,ACEITE.map(function(a){return a.id;}))+1;}
-    if(d.horasExtra&&d.horasExtra.length){HEXTRA=d.horasExtra.map(function(h){return{id:+h.id,mec:''+h.mec,placa:''+h.placa,veh:''+(h.veh||''),desc:''+h.desc,horas:+h.horas,fecha:''+h.fecha,fechaFin:''+(h.fechaFin||h.fecha),estado:''+(h.estado||'pendiente')};});HXID=Math.max.apply(null,HEXTRA.map(function(h){return h.id;}))+1;}
+    if(d.tareas&&d.tareas.length){TAREAS=d.tareas.map(function(t){return{id:+t.id,placa:''+t.placa,veh:''+t.veh,mec:''+t.mec,tit:''+t.tit,desc:''+(t.desc||''),est:''+t.est,pri:''+t.pri,fecha:''+t.fecha,fin:''+(t.fin||''),nota:''+(t.nota||'')};});TID=TAREAS.length?Math.max.apply(null,TAREAS.map(function(t){return t.id;}))+1:1;}
+    if(d.aceite&&d.aceite.length){ACEITE=d.aceite.map(function(a){return{id:+a.id,placa:''+a.placa,conductor:''+(a.conductor||''),tel:''+(a.tel||''),vc:''+a.vc,est:''+(a.est||'pendiente')};});AID=ACEITE.length?Math.max.apply(null,ACEITE.map(function(a){return a.id;}))+1:1;}
+    if(d.horasExtra&&d.horasExtra.length){
+      HEXTRA=d.horasExtra.map(function(h){return{id:+h.id,mec:''+h.mec,placa:''+h.placa,veh:''+(h.veh||''),desc:''+h.desc,horas:+h.horas,fecha:''+h.fecha,fechaFin:''+(h.fechaFin||h.fecha),estado:''+(h.estado||'pendiente')};});
+      HXID=HEXTRA.length?Math.max.apply(null,HEXTRA.map(function(h){return h.id;}))+1:1;
+    }
     if(d.notas&&d.notas.length){NOTAS={};d.notas.forEach(function(n){NOTAS[''+n.mechId]={txt:''+(n.txt||''),fecha:''+(n.fecha||''),foto:(n.foto&&n.foto!=='')?n.foto:null};});}
     if(d.chat&&d.chat.length){CHAT={};d.chat.forEach(function(c){var m=''+c.mechId;if(!CHAT[m])CHAT[m]=[];CHAT[m].push({id:+c.id,autor:''+c.autor,txt:''+(c.txt||''),foto:(c.foto&&c.foto!=='')?c.foto:null,fecha:''+c.fecha});});CHATID=Math.max.apply(null,d.chat.map(function(c){return+c.id;}))+1;}
     syncStatus('ok'); if(cb)cb(true);
@@ -1085,19 +1088,139 @@ function pgMichat(el){
   var isA=CU.role==='admin';
   el.innerHTML='<div class="sh"><h1>MIS <em>NOTAS</em></h1></div>';
   if(isA){
-    // Admin ve todos los chats
     mechs().forEach(function(m){
       var msgs=(CHAT[m.id]||[]);
-      var card=document.createElement('div');card.className='card';card.style.cssText='margin-bottom:14px;cursor:pointer';
-      card.innerHTML='<div style="display:flex;align-items:center;gap:10px"><div class="av" style="background:'+m.col+';width:36px;height:36px;color:#000">'+m.name[0]+'</div>'
-        +'<div><div style="font-weight:700">'+esc(m.name)+'</div><div style="font-size:12px;color:var(--mu)">'+msgs.length+' mensaje'+(msgs.length!==1?'s':'')+'</div></div>'
-        +'<button style="margin-left:auto;border-radius:4px;border:1px solid var(--bl);background:transparent;color:var(--bl);padding:4px 12px;font-size:12px;cursor:pointer">Abrir chat</button></div>';
-      card.onclick=function(){openChat(m.id);};
+      var nota=NOTAS[m.id];
+      var card=document.createElement('div');card.className='card';card.style.cssText='margin-bottom:10px';
+      var mid=m.id;
+      var bNo2=document.createElement('button');bNo2.style.cssText='border-radius:4px;border:1px solid var(--or);background:transparent;color:var(--or);padding:4px 10px;font-size:12px;cursor:pointer';bNo2.textContent='📌 Nota';
+      bNo2.onclick=(function(id){return function(){modalNotaDia(id);};})(mid);
+      var bCh2=document.createElement('button');bCh2.style.cssText='border-radius:4px;border:1px solid var(--bl);background:transparent;color:var(--bl);padding:4px 10px;font-size:12px;cursor:pointer';
+      bCh2.textContent='💬 Chat'+(msgs.length?' ('+msgs.length+')':'');
+      bCh2.onclick=(function(id){return function(){openChat(id);};})(mid);
+      card.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+        +'<div class="av" style="background:'+m.col+';width:36px;height:36px;color:#000">'+m.name[0]+'</div>'
+        +'<div style="flex:1"><div style="font-weight:700">'+esc(m.name)+'</div>'
+        +(nota&&nota.txt?'<div style="font-size:11px;color:var(--or)">📌 '+esc(nota.txt.slice(0,40))+'</div>':'<div style="font-size:11px;color:var(--mu)">Sin nota del día</div>')
+        +'</div></div>';
+      var bRow=document.createElement('div');bRow.style.cssText='display:flex;gap:6px;margin-top:8px;flex-wrap:wrap';
+      bRow.appendChild(bNo2);bRow.appendChild(bCh2);
+      card.appendChild(bRow);
       el.appendChild(card);
     });
   } else {
-    openChat(CU.id);
+    // Mecánico: su propia nota del día + chat con admin
+    var nota=NOTAS[CU.id]||{txt:'',fecha:'',foto:null};
+    // Nota del día propia
+    var nb=document.createElement('div');nb.style.cssText='background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:16px;margin-bottom:16px';
+    nb.innerHTML='<div style="font-size:12px;font-weight:700;color:var(--or);margin-bottom:10px">📌 MI NOTA DEL DÍA</div>'
+      +'<div class="fi"><label>Texto</label><textarea id="miNotaTxt" rows="3" style="width:100%">'+esc(nota.txt||'')+'</textarea></div>'
+      +'<div class="fi" style="margin-top:8px"><label>Fecha</label><input type="date" id="miNotaF" value="'+(nota.fecha||td())+'" style="width:100%"></div>'
+      +(nota.foto?'<div style="margin:8px 0" id="miNotaFotoBox"><img src="'+nota.foto+'" style="max-height:80px;border-radius:4px;cursor:pointer" id="miNotaFotoImg"><br><button onclick="clearMiNota()" style="border-radius:4px;border:1px solid var(--re);background:transparent;color:var(--re);font-size:11px;padding:2px 8px;cursor:pointer;margin-top:4px">✕ Quitar foto</button></div>':'<div id="miNotaPrev" style="margin:6px 0"></div>')
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">'
+      +'<label style="cursor:pointer;background:var(--s2);border:1px solid var(--bd);padding:6px 12px;border-radius:4px;font-size:12px">📎 Foto<input type="file" accept="image/*" id="miNotaFile" style="display:none"></label>'
+      +'<button onclick="guardarMiNota()" style="border-radius:4px;background:var(--ac);color:#000;font-weight:700;padding:6px 16px;font-size:13px;cursor:pointer">💾 Guardar nota</button>'
+      +(nota.txt||nota.foto?'<button onclick="borrarMiNota()" style="border-radius:4px;border:1px solid var(--re);background:transparent;color:var(--re);padding:6px 12px;font-size:12px;cursor:pointer">🗑 Borrar</button>':'')
+      +'</div>';
+    el.appendChild(nb);
+    setTimeout(function(){
+      var fotoImg=document.getElementById('miNotaFotoImg');
+      if(fotoImg) fotoImg.onclick=function(){zoomImg(this.src);};
+      var fi=document.getElementById('miNotaFile');
+      if(!fi)return;
+      fi.onchange=function(){
+        var f=this.files[0];if(!f)return;
+        var r=new FileReader();
+        r.onload=function(e){
+          _ndImg=e.target.result;
+          var pv=document.getElementById('miNotaPrev');
+          if(pv)pv.innerHTML='<img src="'+_ndImg+'" style="max-height:80px;border-radius:4px;cursor:pointer" onclick="zoomImg(this.src)"><br><button onclick="clearMiNota()" style="border-radius:4px;border:1px solid var(--re);background:transparent;color:var(--re);font-size:11px;padding:2px 8px;cursor:pointer;margin-top:4px">✕ Quitar</button>';
+        };r.readAsDataURL(f);
+      };
+    },50);
+    // Chat con admin
+    var cb2=document.createElement('div');cb2.style.cssText='background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:16px';
+    cb2.innerHTML='<div style="font-size:12px;font-weight:700;color:var(--bl);margin-bottom:10px">💬 CHAT CON ADMIN</div>';
+    el.appendChild(cb2);
+    renderChatInline(CU.id, cb2);
   }
+}
+
+function guardarMiNota(){
+  var txt=(document.getElementById('miNotaTxt')||{}).value||'';
+  var fecha=(document.getElementById('miNotaF')||{}).value||td();
+  if(!txt.trim()&&!_ndImg){toast('Escribe algo o adjunta foto',true);return;}
+  function finish(foto){
+    NOTAS[CU.id]={txt:txt.trim(),fecha:fecha,foto:foto||null};
+    saveData();toast('✔ Nota guardada');go('michat');
+  }
+  if(_ndImg&&_ndImg.startsWith('data:')){
+    compressImg(_ndImg,function(c){finish(c);});
+  } else { finish(_ndImg); }
+}
+
+function borrarMiNota(){
+  delete NOTAS[CU.id];_ndImg=null;saveData();toast('Nota borrada');go('michat');
+}
+
+function clearMiNota(){
+  _ndImg=null;
+  var p=document.getElementById('miNotaPrev');if(p)p.innerHTML='';
+}
+
+function renderChatInline(mechId, container){
+  _chatMec=mechId; _pendImg=null;
+  var msgs=(CHAT[mechId]||[]).slice().sort(function(a,b){return a.id-b.id;});
+  var log=document.createElement('div');
+  log.style.cssText='max-height:250px;overflow-y:auto;background:var(--bg);border-radius:4px;padding:10px;margin-bottom:10px';
+  if(!msgs.length) log.innerHTML='<div style="text-align:center;color:var(--mu);padding:20px;font-size:12px">Sin mensajes aún</div>';
+  msgs.forEach(function(msg){
+    var mine=msg.autor===CU.id;
+    var d=document.createElement('div');d.style.cssText='margin-bottom:8px;text-align:'+(mine?'right':'left');
+    d.innerHTML='<div style="font-size:10px;color:var(--mu);margin-bottom:2px">'+(mine?'Tú':'Admin')+' · '+msg.fecha+'</div>'
+      +'<div style="display:inline-block;max-width:80%;background:'+(mine?'var(--ac)':'var(--s2)')+';color:'+(mine?'#000':'var(--tx)')+';padding:7px 11px;border-radius:8px;font-size:13px">'
+      +(msg.txt?'<div>'+esc(msg.txt)+'</div>':'')
+      +(msg.foto?'<img src="'+msg.foto+'" style="max-width:160px;max-height:160px;border-radius:4px;margin-top:4px;display:block;cursor:pointer" class="zoomable">':'')
+      +'</div>';
+    log.appendChild(d);
+  });
+  container.appendChild(log);
+  setTimeout(function(){
+    log.scrollTop=log.scrollHeight;
+    log.querySelectorAll('.zoomable').forEach(function(img){img.onclick=function(){zoomImg(this.src);};});
+  },50);
+  var pendPrev=document.createElement('div');pendPrev.id='miChatPrev';container.appendChild(pendPrev);
+  var row=document.createElement('div');row.style.cssText='display:flex;gap:6px;align-items:flex-end';
+  var ta=document.createElement('textarea');ta.id='miChatTxt';ta.rows=2;ta.placeholder='Escribe un mensaje...';ta.style.flex='1';
+  var col=document.createElement('div');col.style.cssText='display:flex;flex-direction:column;gap:4px';
+  var lbl=document.createElement('label');lbl.style.cssText='cursor:pointer;background:var(--s2);border:1px solid var(--bd);padding:6px 8px;border-radius:4px;font-size:16px;text-align:center';
+  lbl.title='Adjuntar foto';lbl.textContent='📎';
+  var fi=document.createElement('input');fi.type='file';fi.accept='image/*';fi.style.display='none';
+  fi.onchange=function(){
+    var f=this.files[0];if(!f)return;
+    var r=new FileReader();
+    r.onload=function(e){
+      _pendImg=e.target.result;
+      var pv=document.getElementById('miChatPrev');
+      if(pv)pv.innerHTML='<div style="margin-bottom:6px"><img src="'+_pendImg+'" style="max-height:50px;border-radius:4px"><button onclick="clearPendImg()" style="border-radius:4px;border:1px solid var(--re);background:transparent;color:var(--re);font-size:11px;padding:2px 6px;margin-left:4px;cursor:pointer">✕</button></div>';
+    };r.readAsDataURL(f);
+  };
+  lbl.appendChild(fi);
+  var bSend=document.createElement('button');bSend.style.cssText='border-radius:4px;background:var(--ac);color:#000;font-weight:700;padding:6px 8px;border:none;cursor:pointer;font-size:13px';bSend.textContent='▶';
+  bSend.onclick=function(){
+    var txt=ta.value||'';
+    if(!txt.trim()&&!_pendImg){toast('Escribe algo',true);return;}
+    if(!CHAT[mechId])CHAT[mechId]=[];
+    function finish(foto){
+      CHAT[mechId].push({id:CHATID++,autor:CU.id,txt:txt.trim(),foto:foto||null,fecha:td()});
+      _pendImg=null;saveData();toast('✔ Enviado');go('michat');
+    }
+    if(_pendImg&&_pendImg.startsWith('data:')){compressImg(_pendImg,function(c){finish(c);});}
+    else{finish(_pendImg);}
+  };
+  col.appendChild(lbl);col.appendChild(bSend);
+  row.appendChild(ta);row.appendChild(col);
+  container.appendChild(row);
 }
 
 // ══════════════════════════════════════
