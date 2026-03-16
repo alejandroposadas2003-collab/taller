@@ -586,17 +586,15 @@ function _doSave(){
     usuarios:U.filter(function(u){return u.role!=='admin'}),
     tareas:tarFlat,aceite:ACEITE,horasExtra:HEXTRA,notas:na,chat:ca
   };
-  // Save via script tag - sigue redirecciones de Google, el request SÍ llega
-  var saveUrl=API+'?action=save&tables='+encodeURIComponent(JSON.stringify(tables));
-  var sc=document.createElement('script');
-  sc.src=saveUrl;
-  sc.onload=function(){_saving=false;syncSt('ok');sc.remove()};
-  sc.onerror=function(){
-    // onerror se dispara por bloqueo CORS del navegador al LEER la respuesta
-    // pero el request YA llegó al Apps Script y guardó correctamente
-    _saving=false;syncSt('ok');sc.remove()
-  };
-  document.head.appendChild(sc);
+  // POST con no-cors — no hace preflight, llega directo al Apps Script
+  var payload=JSON.stringify(tables);
+  fetch(API,{
+    method:'POST',
+    mode:'no-cors',
+    headers:{'Content-Type':'text/plain'},
+    body:payload
+  }).then(function(){_saving=false;syncSt('ok')})
+    .catch(function(){_saving=false;syncSt('error')});
 }
 
 // ══ AUTH ══
