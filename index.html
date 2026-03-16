@@ -1468,7 +1468,9 @@ function pgNotas(el){
   if(isA){
     // Admin: lista mecánicos con botones nota+chat
     if(!mechs().length){
-      el.innerHTML+='<div class="empty"><div class="ei">💬</div>Sin mecánicos registrados</div>';return
+      var empn=document.createElement('div');empn.className='empty';
+      empn.innerHTML='<div class="ei">💬</div>Sin mecánicos registrados';
+      el.appendChild(empn);return
     }
     mechs().forEach(function(m){
       var msgs=(CHAT[m.id]||[]).length;
@@ -1633,7 +1635,9 @@ function pgAceite(el){
   el.appendChild(sh);
 
   if(!ACEITE.length){
-    el.innerHTML+='<div class="empty"><div class="ei">🛢</div>Sin vehículos</div>';return
+    var emp=document.createElement('div');emp.className='empty';
+    emp.innerHTML='<div class="ei">🛢</div>Sin vehículos';
+    el.appendChild(emp);return
   }
 
   var tw=document.createElement('div');tw.className='tw';
