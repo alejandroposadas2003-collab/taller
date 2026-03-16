@@ -586,9 +586,11 @@ function _doSave(){
     usuarios:U.filter(function(u){return u.role!=='admin'}),
     tareas:tarFlat,aceite:ACEITE,horasExtra:HEXTRA,notas:na,chat:ca
   };
-  fetch(API+'?action=save&tables='+encodeURIComponent(JSON.stringify(tables)),{method:'GET',mode:'no-cors'})
-    .then(function(){_saving=false;syncSt('ok')})
-    .catch(function(){_saving=false;syncSt('error')})
+  jsonpCall({action:'save',tables:JSON.stringify(tables)},function(res,err){
+    _saving=false;
+    if(err||!res||!res.ok){syncSt('error');setTimeout(function(){saveData()},4000)}
+    else syncSt('ok')
+  })
 }
 
 // ══ AUTH ══
