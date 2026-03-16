@@ -602,10 +602,30 @@ function selRol(r,el){
   var lp=document.getElementById('lpass');
   if(r==='mecanico'){
     lp.style.display='block';
-    mechs().forEach(function(u){
-      var o=document.createElement('option');o.value=u.id;o.textContent=u.name;s.appendChild(o)
-    });
-    if(!mechs().length)s.innerHTML='<option value="">Sin mecánicos registrados aún</option>'
+    // Poblar con mecánicos locales primero
+    function poblarMecs(){
+      s.innerHTML='<option value="">— Selecciona —</option>';
+      if(mechs().length){
+        mechs().forEach(function(u){
+          var o=document.createElement('option');o.value=u.id;o.textContent=u.name;s.appendChild(o)
+        })
+      } else {
+        s.innerHTML='<option value="">Cargando...</option>'
+      }
+    }
+    poblarMecs();
+    // Siempre cargar del Sheets para tener los más recientes
+    jsonpCall({action:'load'},function(res,e2){
+      if(!e2&&res&&res.ok&&res.data&&res.data.usuarios){
+        res.data.usuarios.forEach(function(su){
+          if(!su.name||su.name.length<2||su.name==='FF'||!su.id||su.id.length<2)return;
+          if(!U.find(function(u){return u.id===''+su.id}))
+            U.push({id:''+su.id,name:''+su.name,pass:''+su.pass,role:''+su.role,col:''+su.col});
+          else{var ex=U.find(function(u){return u.id===''+su.id});if(ex&&su.name!=='FF'){ex.name=''+su.name;ex.pass=''+su.pass}}
+        })
+      }
+      poblarMecs()
+    })
   } else {
     lp.style.display='block';lp.placeholder='Contraseña';lp.value='';
     var o=document.createElement('option');o.value='admin';o.textContent='Maximino (Admin)';s.appendChild(o);s.value='admin'
@@ -2048,6 +2068,18 @@ function doEditAdmin(){
 // ══ INIT ══
 buildChips();
 selRol('admin',document.getElementById('rb-admin'));
+// Precargar mecánicos del Sheets al arrancar
+jsonpCall({action:'load'},function(res,e2){
+  if(!e2&&res&&res.ok&&res.data&&res.data.usuarios){
+    res.data.usuarios.forEach(function(su){
+      if(!su.name||su.name.length<2||su.name==='FF'||!su.id||su.id.length<2)return;
+      var ex=U.find(function(u){return u.id===''+su.id});
+      if(!ex)U.push({id:''+su.id,name:''+su.name,pass:''+su.pass,role:''+su.role,col:''+su.col});
+      else if(su.name!=='FF'){ex.name=''+su.name;ex.pass=''+su.pass;ex.col=''+su.col}
+    })
+  }
+  buildChips()
+});
 </script>
 </body>
 </html>
