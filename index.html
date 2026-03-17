@@ -1133,26 +1133,25 @@ function buildOrdenTable(rows,isA,compact){
       bl3.onclick=(function(id){return function(){terminarTarea(id)}})(t.id);
       acts.appendChild(bl3)
     }
-    if(!compact){
-      var bn2=document.createElement('button');bn2.className='btn btn-dk-out btn-sm';bn2.textContent='📝 Nota';
-      bn2.onclick=(function(id){return function(){
-        var x=TAREAS.find(function(t){return t.id===id});if(!x)return;
-        document.getElementById('norden-id').value=id;
-        document.getElementById('norden-sub').textContent=x.placa+' · '+x.tit;
-        document.getElementById('norden-txt').value=x.nota||'';
-        oM('ov-nota-orden')
+    // Nota y eliminar
+    var bn2=document.createElement('button');bn2.className='btn btn-dk-out btn-sm';bn2.textContent='📝 Nota';
+    bn2.onclick=(function(id){return function(){
+      var x=TAREAS.find(function(t){return t.id===id});if(!x)return;
+      document.getElementById('norden-id').value=id;
+      document.getElementById('norden-sub').textContent=x.placa+' · '+x.tit;
+      document.getElementById('norden-txt').value=x.nota||'';
+      oM('ov-nota-orden')
+    }})(t.id);
+    acts.appendChild(bn2);
+    if(isA){
+      var bd=document.createElement('button');bd.className='btn btn-re-out btn-sm';bd.textContent='🗑';
+      bd.onclick=(function(id){return function(){
+        confirm2('ELIMINAR','¿Eliminar esta orden?','Eliminar',function(){
+          TAREAS=TAREAS.filter(function(t){return t.id!==id});
+          saveData();toast('Orden eliminada');go(_cur)
+        })
       }})(t.id);
-      acts.appendChild(bn2);
-      if(isA){
-        var bd=document.createElement('button');bd.className='btn btn-re-out btn-sm';bd.textContent='✕';
-        bd.onclick=(function(id){return function(){
-          confirm2('ELIMINAR','¿Eliminar esta orden?','Eliminar',function(){
-            TAREAS=TAREAS.filter(function(t){return t.id!==id});
-            saveData();toast('Orden eliminada');go(_cur)
-          })
-        }})(t.id);
-        acts.appendChild(bd)
-      }
+      acts.appendChild(bd)
     }
     card.appendChild(acts);frag.appendChild(card)
   });
@@ -1227,6 +1226,18 @@ function pgHistorial(el){
           confirm2('Pausas registradas',html2,'Cerrar',function(){})
         }})(t.pausas);
         card.appendChild(pb)
+      }
+      // Eliminar (solo admin)
+      if(isA){
+        var bdel=document.createElement('button');bdel.className='btn btn-re-out btn-sm';bdel.style.marginTop='8px';bdel.style.marginLeft='6px';bdel.textContent='🗑 Eliminar';
+        bdel.onclick=(function(id){return function(){
+          confirm2('ELIMINAR','¿Eliminar esta orden del historial?','Eliminar',function(){
+            TAREAS=TAREAS.filter(function(x){return x.id!==id});
+            terminadas=terminadas.filter(function(x){return x.id!==id});
+            saveData();toast('Orden eliminada');render(terminadas)
+          })
+        }})(t.id);
+        card.appendChild(bdel)
       }
       wrap.appendChild(card)
     })
