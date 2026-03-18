@@ -561,6 +561,9 @@ function saveData(){
 function _doSave(){
   if(_saving){_saveTimer=setTimeout(_doSave,1000);return}
   _saving=true;syncSt('saving');
+  var isA=CU&&CU.role==='admin';
+  var mecId=CU?CU.id:'';
+
   var na=Object.keys(NOTAS).map(function(k){
     var n=NOTAS[k];var f=n.foto||'';
     if(f.startsWith('data:'))f='';
@@ -582,19 +585,32 @@ function _doSave(){
     pausas:JSON.stringify(t.pausas||[]),
     horaFinMs:t.horaFinMs||0
   }});
-  var tables={
-    usuarios:U.filter(function(u){return u.role!=='admin'}),
-    tareas:tarFlat,aceite:ACEITE,horasExtra:HEXTRA,notas:na,chat:ca
-  };
-  // POST con no-cors — no hace preflight, llega directo al Apps Script
-  var payload=JSON.stringify(tables);
+
+  var payload;
+  if(isA){
+    payload=JSON.stringify({
+      mode:'full',
+      usuarios:U.filter(function(u){return u.role!=='admin'}),
+      tareas:tarFlat,aceite:ACEITE,horasExtra:HEXTRA,notas:na,chat:ca
+    })
+  } else {
+    // Mecánico guarda SOLO sus datos — no pisa a los demás
+    payload=JSON.stringify({
+      mode:'partial',
+      mecId:mecId,
+      tareas:tarFlat.filter(function(t){return t.mec===mecId||!t.mec}),
+      horasExtra:HEXTRA.filter(function(h){return h.mec===mecId}),
+      notas:na.filter(function(n){return n.mechId===mecId}),
+      chat:ca.filter(function(c){return c.mechId===mecId})
+    })
+  }
+
   fetch(API,{
-    method:'POST',
-    mode:'no-cors',
+    method:'POST',mode:'no-cors',
     headers:{'Content-Type':'text/plain'},
     body:payload
   }).then(function(){_saving=false;syncSt('ok')})
-    .catch(function(){_saving=false;syncSt('error')});
+    .catch(function(){_saving=false;syncSt('error')})
 }
 
 // ══ AUTH ══
